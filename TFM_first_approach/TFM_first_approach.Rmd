@@ -1,0 +1,50 @@
+---
+title: "TFM approach"
+date: '`r paste(format(Sys.Date(),"%d")," - ", month.abb[as.numeric(format(Sys.Date(),"%m"))], " - ", format(Sys.Date(),"%Y"), sep = "")`'
+output:
+  revealjs::revealjs_presentation:
+    theme: simple
+    highlight: pygments
+    incremental: true
+---
+
+
+# The problem {data-background=#FAD77D}
+
+##
+
+> - One of the usual nightmares of parents is the **enrollment of their children in a school**.
+
+- The increase of population in certain neighborhoods generates a demand that the **public schools of the zone can not meet**.
+
+- Families with resources can afford to pay for a private school or state-subsidiesed school, but there are families that can not or do not want to do it.
+
+# The political solution {data-background=#FAD77D}
+
+##
+
+> - In 2013, the Government Council of the Community of Madrid presented the **Decree of Free Choice of School**.
+
+- Although it was not its main objective, one of the expected positive consequences of this decree was to reduce the problem of adjustment between the supply and demand of public schools.
+
+- A report presented by CCOO on July 13 estimates that more than 15,000 students have been left out of the ordinary schooling process in the Community of Madrid.
+
+# The data-driven approximation {data-background=#FAD77D}
+
+##
+
+The objective of the project is twofold:
+
+- On the one hand, explore and size the problem of adjustment between the number of public schools and potential students by district / neighborhood / etc ..
+
+- On the other hand, to create an algorithm that allows to establish the probability of acceptance in a school and recommend, in case of low probability, other options.
+
+# The data sources {data-background=#FAD77D}
+
+## {data-background="buscadorcolegios.png"}
+
+## {data-background="estadisticas.png"}
+
+## {data-background="datosabiertos.png"}
+
+# Thank you! {data-background=#FAD77D}
