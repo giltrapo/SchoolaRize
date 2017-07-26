@@ -8,4 +8,6 @@ The purpose of the project is twofold:
 
 - Try to predict the probability of not getting a place in a school.
 
+You can find a early approach of the project [here][http://htmlpreview.github.io/?https://github.com/giltrapo/SchoolaRize/blob/master/TFM_first_approach/TFM_first_approach.html#/].
+
 The project is under development, so objectives of the project could change.
