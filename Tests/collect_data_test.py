@@ -101,3 +101,45 @@ print school_tables
 
 # something is wrong! there is no data in the tables
 
+
+
+# we can't use 'request' because it load the page but doesn't run code in
+# the source code, and the content of tables it's generated on-the-fly with
+# javascript
+
+import sys
+from PyQt4.QtGui import QApplication
+from PyQt4.QtCore import QUrl
+from PyQt4.QtWebKit import QWebPage
+
+class browsmimic(QWebPage):
+
+  def __init__(self, url):
+    self.app = QApplication(sys.argv)
+    QWebPage.__init__(self)
+    self.loadFinished.connect(self.page_loaded)
+    self.mainFrame().load(QUrl(url))
+    self.app.exec_()
+  
+  def page_loaded(self):
+    self.app.quit()
+
+# we have to use the url with the parameter
+url = "http://www.madrid.org/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28063799"
+
+render_content = browsmimic(url)
+source = render_content.mainFrame().toHtml()
+school_card = BeautifulSoup(source, "lxml")
+
+from bs4 import BeautifulSoup
+
+school_tables = school_card.findAll('table', class_="tablaGraficaDatos")
+table = school_tables[0]
+
+type(source)
+
+str_source = str(source.toAscii())
+school_card = BeautifulSoup(str_source, "lxml")
+
+#
+
