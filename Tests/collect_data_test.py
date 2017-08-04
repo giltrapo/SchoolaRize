@@ -141,5 +141,38 @@ type(source)
 str_source = str(source.toAscii())
 school_card = BeautifulSoup(str_source, "lxml")
 
-#
+####################3
+
+# this work!
+
+import sys
+from PyQt4.QtGui import QApplication
+from PyQt4.QtCore import QUrl
+from PyQt4.QtWebKit import QWebPage
+from bs4 import BeautifulSoup
+
+class brows_mimic(QWebPage):  
+
+  def __init__(self, url):
+    self.app = QApplication(sys.argv)
+    QWebPage.__init__(self)
+    self.loadFinished.connect(self._loadFinished)
+    self.mainFrame().load(QUrl(url))
+    self.app.exec_()
+
+  def _loadFinished(self, result):
+    self.frame = self.mainFrame()
+    self.app.quit()
+
+url = "http://www.madrid.org/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28063799"
+render_content = brows_mimic(url)  
+result = render_content.frame.toHtml()
+formatted_result = str(result.toAscii())
+school_card = BeautifulSoup(formatted_result, "lxml")
+school_tables = school_card.findAll('table', class_="tablaGraficaDatos")
+table = school_tables[0]
+import pandas as pd
+table = pd.read_html(table.prettify())[0]
+print table
+
 
