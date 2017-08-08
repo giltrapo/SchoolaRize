@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+% cd ~/Master_Data_Science/TFM/Collect_data/
+
 # This script use sys, request, PyQt4, bs4 and pandas python libraries.
 
 import sys
@@ -19,8 +21,7 @@ url_advsearch = "http://www.madrid.org/wpad_pub/run/j/BusquedaAvanzada.icm"
 params = {"titularidadPublica": "S", "cdMuni": "079", "cdNivelEdu": "6545"}
 
 # Request and parse list of schools.
-schools = BeautifulSoup(
-    requests.post(url_advsearch, data = params).content, "lxml")
+schools = BeautifulSoup(requests.post(url_advsearch, data = params).content, "lxml")
 
 # Extract list of school codes.
 school_codes = schools.findAll(
@@ -92,6 +93,8 @@ school_name = school_card.find(style="text-transform:uppercase").next.next
 
 print school_name
 
+
+# Save tables in a dictionary
 dataframe_collection = {}
 
 for i, table in list(enumerate(school_tables)):
@@ -102,10 +105,9 @@ for i, table in list(enumerate(school_tables)):
 print dataframe_collection
 
 
-schools_urls = [url_schoolcard + "?" + school_code_par + code for code in school_codes]
-
-
 # Test with 5 urls.
+
+schools_urls = [url_schoolcard + "?" + school_code_par + code for code in school_codes]
 
 dataframe_collection = {}
 
@@ -122,6 +124,56 @@ for school in schools_urls[:5]:
             pd.read_html(table.prettify())
 
 # NOT WORK!!!! WHYYYYYY!!!
+
+
+# Apparently, only one QApplication can be created in the program.
+
+# Let's try dryscrape
+
+import dryscrape
+
+render = dryscrape.Session()
+render.visit("http://www.madrid.org/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28063799")
+source = render.body()
+school_card = BeautifulSoup(source, "lxml")
+school_tables = school_card.findAll('table', class_="tablaGraficaDatos")
+school_name = school_card.find(style="text-transform:uppercase").next.next
+
+dataframe_collection = {}
+
+for i, table in list(enumerate(school_tables)):
+    if i <= 1:
+        dataframe_collection[school_name + "_" + str(i)] = \
+        pd.read_html(table.prettify())
+
+type(school_tables)
+
+
+# It's ok. Let's test it with 5 urls.
+
+url_schoolcard = "http://www.madrid.org/wpad_pub/run/j/MostrarFichaCentro.icm"
+school_code_par = "cdCentro="
+schools_urls = [url_schoolcard + "?" + school_code_par + code for code in school_codes]
+
+dataframe_collection = {}
+
+render = dryscrape.Session()
+for school in schools_urls[:5]:
+    render.visit(school)
+    source = render.body()
+    school_card = BeautifulSoup(source, "lxml")
+    school_tables = school_card.findAll('table', class_="tablaGraficaDatos")
+    school_name = school_card.find(style="text-transform:uppercase").next.next
+    for i, table in list(enumerate(school_tables)):
+        if i <= 1:
+            dataframe_collection[school_name + "_" + str(i)] = \
+            pd.read_html(table.prettify())
+
+print dataframe_collection
+
+# Perfect!!
+
+
 
 
 # de cara a matchear la bbdd del ayuntamiento y la de la comunidad hay que formatear:
