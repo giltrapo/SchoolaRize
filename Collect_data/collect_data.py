@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 % cd ~/Master_Data_Science/TFM/Collect_data/
+% pwd
 
 # This script use sys, request, PyQt4, bs4 and pandas python libraries.
 
@@ -35,6 +36,22 @@ school_codes = school_codes.split(";")
 # 247 it's ok.
 # print len(school_codes)
 
+
+# Let's save the list of school codes in order to use it in this test phase
+
+import pickle
+
+# to save
+with open("school_codes.txt", "wb") as f:
+    pickle.dump(school_codes, f)
+
+
+# to open
+with open("school_codes.txt", "rb") as f:
+    school_codes = pickle.load(f)
+
+
+
 <-------------->
 
 # Extract tables from school cards.
@@ -50,17 +67,17 @@ school_codes = school_codes.split(";")
 
 # Create the class 'mimic-render' that is inheriting from QWebPage.
 class mimic_render(QWebPage):
+	
+	def __init__(self, url):
+    	self.app = QApplication(sys.argv)
+    	QWebPage.__init__(self)
+    	self.loadFinished.connect(self.on_page_load)
+    	self.mainFrame().load(QUrl(url))
+    	self.app.exec_()
 
-  def __init__(self, url):
-    self.app = QApplication(sys.argv)
-    QWebPage.__init__(self)
-    self.loadFinished.connect(self.on_page_load)
-    self.mainFrame().load(QUrl(url))
-    self.app.exec_()
-
-  def on_page_load(self, result):
-    self.frame = self.mainFrame()
-    self.app.quit()
+	def on_page_load(self, result):
+	    self.frame = self.mainFrame()
+	    self.app.quit()
 
 # School card url.
 url_schoolcard = "http://www.madrid.org/wpad_pub/run/j/MostrarFichaCentro.icm"
@@ -155,10 +172,11 @@ url_schoolcard = "http://www.madrid.org/wpad_pub/run/j/MostrarFichaCentro.icm"
 school_code_par = "cdCentro="
 schools_urls = [url_schoolcard + "?" + school_code_par + code for code in school_codes]
 
-dataframe_collection = {}
+school_tables_collection = {}
+school_name_collection = []
 
 render = dryscrape.Session()
-for school in schools_urls[:5]:
+for z, school in enumerate(schools_urls[:9]):
     render.visit(school)
     source = render.body()
     school_card = BeautifulSoup(source, "lxml")
@@ -166,8 +184,10 @@ for school in schools_urls[:5]:
     school_name = school_card.find(style="text-transform:uppercase").next.next
     for i, table in list(enumerate(school_tables)):
         if i <= 1:
-            dataframe_collection[school_name + "_" + str(i)] = \
+            school_tables_collection[school_name + "_" + str(i)] = \
             pd.read_html(table.prettify())
+            school_name_collection.append(school_name)
+    print "Tables of school %s extracted" % schools_urls[z]
 
 print dataframe_collection
 
