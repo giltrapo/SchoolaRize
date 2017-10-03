@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-% cd ~/Master_Data_Science/TFM/Collect_data/
+% cd ~/Master_Data_Science/TFM/2_Collect_data/
 % pwd
 
 # This script use sys, request, PyQt4, bs4 and pandas python libraries.
@@ -49,7 +49,6 @@ with open("school_codes.txt", "wb") as f:
 # to open
 with open("school_codes.txt", "rb") as f:
     school_codes = pickle.load(f)
-
 
 
 <-------------->
@@ -176,7 +175,7 @@ school_tables_collection = {}
 school_name_collection = []
 
 render = dryscrape.Session()
-for z, school in enumerate(schools_urls[:9]):
+for z, school in enumerate(schools_urls[:5]):
     render.visit(school)
     source = render.body()
     school_card = BeautifulSoup(source, "lxml")
@@ -192,6 +191,33 @@ for z, school in enumerate(schools_urls[:9]):
 print dataframe_collection
 
 # Perfect!!
+
+# Two tables are being collected: evolution of the number of students and
+# evolution of the ratio of students admitted to applications submitted.
+# The second table is not correct, because, by default, the page loads the
+# data referred to "Infantil". A "click" event must be performed
+# on the radio button corresponding to "Primaria".
+
+render = dryscrape.Session()
+render.visit("http://www.madrid.org/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28063799")
+radiob = render.at_css('#nivEd12\.grafica3')
+radiob.click()
+source = render.body()
+school_card = BeautifulSoup(source, "lxml")
+school_tables = school_card.findAll('table', class_="tablaGraficaDatos")
+table = list(school_tables)[1]
+pd.read_html(table.prettify())
+
+
+# An error is displayed because one of the parent nodes is not displayed
+# (<div id="solapaspanel1" style="display: none;">, and the radio button
+# is invisible to the code.
+
+
+
+
+
+
 
 
 
