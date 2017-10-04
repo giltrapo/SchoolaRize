@@ -3,9 +3,10 @@
 % cd ~/Master_Data_Science/TFM/2_Collect_data/
 % pwd
 
-# This script use sys, request, PyQt4, bs4 and pandas python libraries.
+# This script use sys, re, request, PyQt4, bs4 and pandas python libraries.
 
 import sys
+import re
 import requests
 from bs4 import BeautifulSoup
 from PyQt4.QtGui import QApplication
@@ -211,11 +212,46 @@ pd.read_html(table.prettify())
 
 # An error is displayed because one of the parent nodes is not displayed
 # (<div id="solapaspanel1" style="display: none;">, and the radio button
-# is invisible to the code.
+# is invisible to the code. 
+
+# Let's try with a little piece of javascript.
+
+render = dryscrape.Session()
+render.visit("http://www.madrid.org/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28063799")
+render.driver.exec_script('document.getElementById("nivEd12.grafica3").click();')
+source = render.body()
+school_card = BeautifulSoup(source, "lxml")
+school_tables = school_card.findAll('table', class_="tablaGraficaDatos")
+table = list(school_tables)[1]
+pd.read_html(table.prettify())
+
+# Now it's working. Let's test 5 urls.
+
+school_tables_collection = {}
+school_name_collection = []
+
+render = dryscrape.Session()
+for z, school in enumerate(schools_urls[:5]):\
+    render = dryscrape.Session()
+    render.set_attribute('auto_load_images', False)
+    render.set_timeout(30)
+    render.visit(school)
+    render.driver.exec_script('document.getElementById("nivEd12.grafica3").click();')
+    time.sleep(1)
+    source = render.body()
+    school_card = BeautifulSoup(source, "lxml")
+    school_tables = school_card.findAll('table', class_="tablaGraficaDatos")
+    school_name = school_card.find(style="text-transform:uppercase").next.next
+    for i, table in list(enumerate(school_tables)):
+        if i <= 1:
+            school_tables_collection[school_name + "_" + str(i)] = \
+            pd.read_html(table.prettify())
+            school_name_collection.append(school_name)
+    print "Tables of school %s extracted" % schools_urls[z]
+    render.reset()
 
 
-
-
+import time
 
 
 
