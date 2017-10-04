@@ -251,18 +251,49 @@ for z, school in enumerate(schools_urls[:5]):\
     render.reset()
 
 
-import time
+# It doesn't work because there are schools that do not have statistics and
+# when we try to get the tables the code throws an error and the loop is stopped.
+# A try-except block must be included. We will also control the rate of crawling
+# in order not to overload the server. We use "randint" to mimic human behavior,
+# varying waiting time between requests to server.
+
+from time import sleep
+from random import randint
+
+
+school_tables_collection = {}
+school_name_collection = []
+
+
+for z, school in enumerate(schools_urls[:4]):
+    try:
+        render = dryscrape.Session()
+        render.visit(school)
+        render.exec_script('document.getElementById("nivEd12.grafica3").click();')
+        source = render.body()
+        school_card = BeautifulSoup(source, "lxml")
+        school_tables = school_card.findAll('table', class_="tablaGraficaDatos")
+        school_name = school_card.find(style="text-transform:uppercase").next.next
+        for i, table in list(enumerate(school_tables)):
+            if i <= 1:
+                school_tables_collection[school_name + "_" + str(i)] = pd.read_html(table.prettify())
+                school_name_collection.append(school_name)
+        print "Tables of school %s extracted" % schools_urls[z]
+        render.reset()
+        sleep(randint(1, 4))
+    except:
+        print "School %s doesn't have statistics" % schools_urls[z]
+        sleep(randint(1, 4))
 
 
 
 
 
-
-# de cara a matchear la bbdd del ayuntamiento y la de la comunidad hay que formatear:
-# bbdd del ayuntamiento
-# - convertir a mayúsculas
-# - quitar el string "Colegio Público"
-# - quitar acentos y diéresis
+# In order to join Council and Community BBDD it must make the following changes:
+# In Council BBDD:
+# - Turn to upper case.
+# - Remove "Colegio Público" string.
+# - Remove accents and umlauts.
 #
-# bbdd de la comunidad
-# - sustituir guión por espacio en blanco
+# In Community BBDD:
+# - Replace dash by blank.
