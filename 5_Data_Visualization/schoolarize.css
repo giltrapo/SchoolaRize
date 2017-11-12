@@ -1,0 +1,118 @@
+.title {
+    height: 10%;
+    font-weight: bold;
+    font-size: 50px;
+    text-align: center;
+    color: #545864;
+    background-color: #ffffff;
+}
+
+.graph {
+    height: 90%;
+}
+
+.dropdown {
+    position: absolute;
+    top: 15%;
+    left: 5%;
+    padding: 0px 0px 0px 0px;
+    width: 300px;
+}
+
+.information_box {
+    position: absolute;
+    top: 50%;
+    left: 5%;
+    border-style: solid;
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: #d8d8d8;
+    padding: 10px 10px 10px 10px;
+    background-color: #ffffff;
+}
+
+.legend_box_districts {
+    position: absolute;
+    top: 60%;
+    right: 5%;
+    border-style: solid;
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: #d8d8d8;
+    padding: 10px 10px 10px 10px;
+    background-color: #ffffff;
+    width: 250px;
+}
+
+.legend_box_schools {
+    position: absolute;
+    top: 25%;
+    right: 5%;
+    border-style: solid;
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: #d8d8d8;
+    padding: 10px 10px 10px 10px;
+    background-color: #ffffff;
+    width: 250px;
+}
+
+.legend_title {
+    font-weight: bold;
+    font-size: 14px;
+    color: #aaaaaf;
+}
+
+.legend_subtitle {
+    font-size: 14px;
+    color: #aaaaaf;
+    padding-bottom: 10px;
+}
+
+.legend_entry {
+    padding: 0px;
+    font-size: 13px;
+}
+
+.legend_symbol_circle {
+    padding: 0px;
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    font-size: 13px;
+    display: inline-block;
+}
+
+.legend_symbol_square {
+    padding: 0px;
+    width: 10px;
+    height: 10px;
+    font-size: 13px;
+    display: inline-block;
+}
+
+.legend_arrow_up {
+  width: 0; 
+  height: 0; 
+  border-left: 5px solid #ffffff;
+  border-right: 5px solid #ffffff;
+  border-bottom: 10px solid #6b6b6b;
+  display: inline-block;
+}
+
+.legend_arrow_down {
+  width: 0; 
+  height: 0; 
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #ffffff;
+  border-top: 10px solid #6b6b6b;
+  display: inline-block;
+}
+
+.legend_text {
+    padding: 0px 5px;
+    color: #aaaaaf;
+    font-size: 13px;
+    display: inline-block;
+}
+

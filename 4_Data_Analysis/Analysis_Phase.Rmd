@@ -1,0 +1,470 @@
+---
+title: "TFM - Analysis phase"
+author: "Jose Ignacio Gómez"
+date: "November 11, 2017"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Although the objective of the project is to perform an exploratory analysis of the relationship between public schools of Primary education, in the city of Madrid, with respect to the total population of children between 6 and 11 years old (ages covered by the Primary stage), we are going to try to model the number of applications and admissions of the 2017-2018 academic year, based on the data we have.
+
+Load the data set "DataSchools.csv".
+
+```{r load_dataset}
+dataschools <- read.csv("../3_Data_Munging/csv_files/DataSchools.csv")
+```
+
+
+## Data Munging
+
+We know that there are schools without application and admissions data, so we created a version with complete data only.
+
+```{r only_completes}
+dscompletes <- dataschools[complete.cases(dataschools[,11:20]), c(1, 11:26)]
+dscompletes$Solicitudes_2017.2018 = NA
+dscompletes$Admisiones_2017.2018 = NA
+dscompletes <- dscompletes[, c(1:11, 19, 18, 12:17)]
+colnames(dscompletes) <- gsub("\\..*","", colnames(dscompletes))
+```
+
+The objective is to predict both applications and admissions for the 2017-2018 year from the applications and admissions of previous years (from 2012 to 2016), and other variables in our dataset.
+
+Although at first sight it may make sense to apply some prediction algorithm related to time series, the truth is that our time series have only 5 elements. We have many time series (one for each school), but they are too short. So let's try it with some regression.
+
+To do this, we will first transform our dataset into long format and we format it.
+
+```{r long_format}
+dslong <- reshape(dscompletes, varying = 2:19, sep = "_",
+                  timevar = "Curso", direction = "long")
+```
+    
+We goint to separate the data that we want to predict (2017-2018).
+
+```{r 2017_data}
+dslong_2017 <- subset(dslong, Curso == 2017)
+dslong_no2017 <- subset(dslong, Curso != 2017)
+```
+
+Let's check if there is some school with number of admissions higher than
+applications.
+
+```{r check_admissions_vs_applications}
+length(dslong_no2017$Colegio[dslong_no2017$Admisiones >
+                               dslong_no2017$Solicitudes])
+```
+
+It's ok.
+
+## Exploratory Analysis
+
+Let's take a look at "Solicitudes" variable.
+
+```{r applications_summary}
+summary(dslong_no2017$Solicitudes)
+```
+
+```{r applications_histogram}
+hist(dslong_no2017$Solicitudes)
+```
+
+It seems that "Solicitudes" variable has positive skew. Let's check it.
+
+```{r skewness_applications}
+library(e1071)
+skewness(dslong_no2017$Solicitudes)
+```
+
+"Solicitudes" variable has a pretty high skew (values above 1 are considered high). Let's calculate the confidence interval, at 95%, of our measure of skewness.
+
+```{r skewness_ci, message = FALSE, warning = FALSE, cache = TRUE}
+library(boot)
+booter <- boot(dslong_no2017$Solicitudes, function(x,i) skewness(x[i]),
+               R = 2000)
+boot.ci(booter)
+```
+
+None of the methods used to calculate the confidence interval includes 0, so we can be sure that the distribution of the variable "Solicitudes" is very skewed.
+    
+We are going to transform the data to try to correct this skewness. Natural logarithm is a method frequently used to transform data with a positive skew. Since some schools do not have applications, we will add an amount to the original score. In this case we are going to add 2.
+
+```{r applicationslog_histogram}
+hist(log(dslong_no2017$Solicitudes + 2))
+```
+
+```{r applicationslog_skewness}
+skewness(log(dslong_no2017$Solicitudes + 2))
+```
+
+```{r applicationslog_skewness_ci, message = FALSE, warning = FALSE, cache = TRUE}
+booter <- boot(log(dslong_no2017$Solicitudes + 2),
+               function(x,i) skewness(x[i]),
+               R = 2000)
+boot.ci(booter)
+```
+
+Now we have a more symmetrical variable.
+    
+Let's check the adjustment of "Solicitudes" to a normal distribution.
+
+```{r applicationslog_qqplot, message = FALSE, warning = FALSE}
+library(car)
+qqPlot(log(dslong_no2017$Solicitudes + 2))
+```
+
+The adjustment is fair, visually. We are going to apply the Shapiro-Wilk test.
+
+```{r applicationslog_shapirotest}
+shapiro.test(log(dslong_no2017$Solicitudes + 2))
+```
+
+The result of the Shapiro-Wilk test does not allow us to affirm that our data come from a normal distribution. In any case, we will build our models with both the transformed variable and the original variable.
+    
+We only want to check if normalizing our dependent variable we get a better fit in our models. So we can continue.
+    
+
+## Data Modeling
+
+Let's create a set of training data and a test data set.
+
+```{r train_and_test_sets}  
+dslong_train <- subset(dslong_no2017, Curso < 2016)
+dslong_test <- subset(dslong_no2017, Curso == 2016)
+```
+
+Let's start with a simple model, and then we will add variables and/or levels.
+
+```{r applications_model0}
+sol0 <- lm(Solicitudes ~ Colegio, data = dslong_train)
+sol0log <- lm(log(Solicitudes + 2) ~ Colegio, data = dslong_train)
+```
+
+```{r applications_model0_MSE}
+cat("model0 MSE: ", mean((predict(sol0, dslong_test) -
+                            dslong_test$Solicitudes) ** 2))
+cat("model0log MSE: ", mean(((exp(predict(sol0log, dslong_test)) - 2) -
+                               dslong_test$Solicitudes)**2))
+```
+
+The model constructed with the original scores has a slightly lower MSE than the one that has used the variable transformed with the natural logarithm.
+    
+Now we will add the course.
+
+```{r applications_model1}
+sol1 <- lm(Solicitudes ~ Colegio + scale(Curso), data = dslong_train)
+sol1log <- lm(log(Solicitudes + 2) ~ Colegio + scale(Curso),
+              data = dslong_train)
+```
+
+```{r applications_model1_MSE}
+cat("model1 MSE: ", mean((predict(sol1, dslong_test) -
+                            dslong_test$Solicitudes) ** 2))
+cat("model1log MSE: ", mean(((exp(predict(sol1log, dslong_test)) - 2) -
+                               dslong_test$Solicitudes)**2))
+```
+
+Including the year of the course to the model, as a fixed effect, does not seem to contribute anything. Let's try a mixed-effects model.
+    
+We are going to model a response according to which the annual admissions trend, as well as the average admissions, is different for each school. That is, we want a model in which the relationship between the number of applications and the school has a different slope and intercept for each of them.
+
+```{r applications_model2, message = FALSE, warning = FALSE}
+library(lme4)
+sol2 <- lmer(Solicitudes ~ Colegio + (1 + scale(Curso) | Colegio),
+             data = dslong_train)
+sol2log <- lmer(log(Solicitudes + 2) ~ Colegio + (1 + scale(Curso) | Colegio),
+                data = dslong_train)
+```
+
+```{r applications_model2_MSE}
+cat("model2 MSE: ", mean((predict(sol2, dslong_test) -
+                            dslong_test$Solicitudes) ** 2))
+cat("model2log MSE: ", mean(((exp(predict(sol2log, dslong_test)) - 2) -
+                               dslong_test$Solicitudes)**2))
+```
+
+It seems that transformed variable "Solicitudes" works slightly better than the original values in a mixed-effects model. Let's check another model without fixed effects, only random effects.
+
+```{r applications_model3}
+sol3 <- lmer(Solicitudes ~ (1 + scale(Curso) | Colegio),
+             data = dslong_train)
+sol3log <- lmer(log(Solicitudes + 2) ~ (1 + scale(Curso) | Colegio),
+                data = dslong_train)
+```
+
+```{r applications_model3_MSE}
+cat("model3 MSE: ", mean((predict(sol3, dslong_test) -
+                            dslong_test$Solicitudes) ** 2))
+cat("model3log MSE: ", mean(((exp(predict(sol3log, dslong_test)) - 2) -
+                               dslong_test$Solicitudes)**2))
+```
+
+The MSE improves again, slightly. Attending to the principle of parsimony, simple models, with few variables, are preferable to more complex models. In this case, it seems that, within the mixed models, the simplest one is the one that produces the best predictions, so we could stay with this model. However, we are going to try another model, from a different perspective.
+    
+From this perspective we could interpret the number of applications from each school as a percentage of the population of each neighborhood. In this case we would be talking about a binomial distribution with a known N (the population of children in each neighborhood) and a probability that would be defined by the logit (inverse-logit) of our linear function. Let's try this.
+
+```{r applications_binomodel0}
+sol0bin <- glm(Solicitudes/PobxBarrio ~ Colegio, family = "binomial",
+               weights = PobxBarrio, data = dslong_train)
+```
+
+```{r applications_binomodel0_MSE}
+cat("modelbinom0 MSE: ", mean((predict(sol0bin, dslong_test, type="response") *
+                                 dslong_test$PobxBarrio -
+                                 dslong_test$Solicitudes) ** 2))
+```
+
+The adjustment with a binomial model works well, but the MSE is greater than the one obtained with the mixed-effects model with Gaussian distribution. We will try to include an interaction between "Colegio" and "Curso".
+
+```{r applications_binomodel1}
+sol1bin <- glm(Solicitudes/PobxBarrio ~ Colegio:Curso,
+               family = "binomial",
+               weights = PobxBarrio, data = dslong_train)
+```
+
+```{r applications_binomodel1_MSE}
+cat("modelbinom1 MSE: ", mean((predict(sol1bin, dslong_test, type="response") *
+                                 dslong_test$PobxBarrio -
+                                 dslong_test$Solicitudes) ** 2))
+```
+
+MSE value has been improved with this model,  but it is still smaller than that obtained with our previous fixed effects model.
+
+So far we have compared models based on their MSE, but we could also use other criteria, such as the AIC value, especially indicated for forecasting.
+    
+First we going to compare the gaussians models with original dependent variable.
+
+```{r aic_applications_models}
+AIC(sol0, sol1, sol2, sol3)
+```
+
+It seems that the best model is "sol2", that is, the model that has the school as fixed effect, and the school conditioned to the year as random effect, even though, as we saw earlier, the smallest MSE is obtained with "sol3".
+    
+According to the theory, AIC penalizes overfitting, so it would be a better criterion than the MSE in our specific case. The problem is that we are comparing nor mixed models ("sol0" and "sol1") with mixed models ("sol2" and "sol3"), so there may be problems in the interpretation of the AIC values. For the comparison to be more valid, mixed models should be adjusted by maximum likelihood, that is, with the option RMLE (Restricted Maximum Likelihood Estimation) disabled. Let's try it.
+
+```{r applications_models_without_REML, message = FALSE, warning = FALSE}
+sol2b <- lmer(Solicitudes ~ Colegio + (1 + scale(Curso) | Colegio),
+              data = dslong_train, REML = FALSE)
+sol3b <- lmer(Solicitudes ~ (1 + scale(Curso) | Colegio),
+              data = dslong_train, REML = FALSE)
+```
+
+```{r aic_applications_models_without_REML}
+AIC(sol0, sol1, sol2b, sol3b)
+```
+
+In the comparison, higher AIC values are now seen for models 2 and 3, but even so the model with the lowest AIC is still "sol2".
+    
+Let's take a look to the models with log-transformed dependent variable.
+
+```{r aic_applications_log_models}
+AIC(sol0log, sol1log, sol2log, sol3log)
+```
+
+The AIC values are very much lower than obtained with previous models. This is because the dependent variable ("Solicitudes") is transformed. If we want to compare the AIC values of these models with those of the previous models we have to make a small transformation.
+
+```{r aic_applications_log_models_scaled}
+cbind(AIC(sol0log, sol1log, sol2log, sol3log)[,1, drop = FALSE],
+      AIC = c(AIC(sol0log) + 2 * sum(log(dslong_train$Solicitudes + 2)),
+              AIC(sol1log) + 2 * sum(log(dslong_train$Solicitudes + 2)),
+              AIC(sol2log) + 2 * sum(log(dslong_train$Solicitudes + 2)),
+              AIC(sol3log) + 2 * sum(log(dslong_train$Solicitudes + 2))))
+```
+
+Regardless of the scale of the AIC values, we observe that for models built with the transformation of the variable "Solicitudes", the lowest AIC is achieved with "sol1", the model that contains the variables "Colegio" and "Curso" as fixed effects.
+    
+But, again, we have the same problem as before. Let's adjust the mixed models without the RMLE option.
+
+```{r applications_log_models_without_REML, message = FALSE, warning = FALSE}
+sol2blog <- lmer(log(Solicitudes + 2) ~ Colegio + (1 + scale(Curso) | Colegio),
+                 data = dslong_train, REML = FALSE)
+sol3blog <- lmer(log(Solicitudes + 2) ~ (1 + scale(Curso) | Colegio),
+                 data = dslong_train, REML = FALSE)
+```
+
+```{r aic_applications_log_models_scaled_without_REML}
+cbind(AIC(sol0log, sol1log, sol2blog, sol3blog)[,1, drop = FALSE],
+      AIC = c(AIC(sol0log) + 2 * sum(log(dslong_train$Solicitudes + 2)),
+              AIC(sol1log) + 2 * sum(log(dslong_train$Solicitudes + 2)),
+              AIC(sol2blog) + 2 * sum(log(dslong_train$Solicitudes + 2)),
+              AIC(sol3blog) + 2 * sum(log(dslong_train$Solicitudes + 2))))
+```
+
+Now the best model is the equivalent to "sol2", in its version with the transformed dependent variable. But is there a real improvement of mixed models versus fixed-effect models? Let's find out by means of an anova.
+
+```{r anova_applications_models}
+anova(sol3b, sol1, sol0)
+```
+
+The mixed model 3 is worse than the fixed-effect models.
+
+```{r anova2_applications_models}
+anova(sol2b, sol1, sol0)
+```
+
+The mixed model 2, on the other hand, improves fixed-effect models.
+
+```{r anova_applications_log_models}
+anova(sol3blog, sol1log, sol0log)
+```
+
+```{r anova2_applications_log_models}
+anova(sol2blog, sol1log, sol0log)
+```
+
+With the models that were built with the transformed dependent variable it's the same output. So, we chose model 2 of mixed effects, but which one?, original or transformed dependent variable?
+
+```{r anova_applications_log_and_original_models}
+anova(sol2b, sol2blog)
+```
+
+Let's stay with the mixed effects model that uses the transformed "Solicitudes" variable, "sol2log".
+    
+Since the best predictions of "Solicitudes" have been obtained with a model with Gaussian distribution, we will follow the same steps with "Admisiones".
+    
+First, let's check "Admisiones" distribution, and transform it if necessary.
+
+```{r admissions_exploratory_analysis, message = FALSE, warning = FALSE, cache = TRUE}
+summary(dslong_no2017$Admisiones)
+hist(dslong_no2017$Admisiones)
+skewness(dslong_no2017$Admisiones)
+skewness(log(dslong_no2017$Solicitudes + 2))
+booter <- boot(log(dslong_no2017$Admisiones + 2), function(x,i) skewness(x[i]),
+               R = 2000)
+boot.ci(booter)
+```
+
+Now, let's adjust some models.
+    
+Model with school.
+
+```{r admissions_model0}
+adm0 <- lm(Admisiones ~ Colegio, data = dslong_train)
+adm0log <- lm(log(Admisiones + 2) ~ Colegio, data = dslong_train)
+```
+
+```{r admissions_model0_MSE}
+cat("model0 MSE: ", mean((predict(adm0, dslong_test) -
+                            dslong_test$Admisiones) ** 2))
+cat("model0log MSE: ", mean(((exp(predict(adm0log, dslong_test)) - 2) -
+                               dslong_test$Admisiones)**2))
+```
+
+Model with school and yearly trend.
+
+```{r admissions_model1}
+adm1 <- lm(Admisiones ~ Colegio + scale(Curso), data = dslong_train)
+adm1log <- lm(log(Admisiones + 2) ~ Colegio + scale(Curso),
+              data = dslong_train)
+```
+
+```{r admissions_model1_MSE}
+cat("model1 MSE: ", mean((predict(adm1, dslong_test) -
+                            dslong_test$Admisiones) ** 2))
+cat("model1log MSE: ", mean(((exp(predict(adm1log, dslong_test)) - 2) -
+                               dslong_test$Admisiones)**2))
+```
+
+Model with school, applications and yearly trend.
+
+```{r admissions_model2}
+adm2 <- lm(Admisiones ~ Colegio + scale(Curso) + Solicitudes, 
+           data = dslong_train)
+adm2log <- lm(log(Admisiones + 2) ~ Colegio + scale(Curso) +
+                log(Solicitudes + 2), data = dslong_train)
+```
+
+```{r admissions_model2_MSE}
+cat("model2 MSE: ", mean((predict(adm2, dslong_test) -
+                            dslong_test$Admisiones) ** 2))
+cat("model2log MSE: ", mean(((exp(predict(adm2log, dslong_test)) - 2) -
+                               dslong_test$Admisiones)**2))
+```
+
+Adding the number of applications to the model really improves it!
+
+Mixed model with school, applications and yearly trend.
+
+```{r admissions_model3, comment = FALSE, warning = FALSE}
+adm3 <- lmer(Admisiones ~ Colegio + scale(Curso) + Solicitudes +
+               (1 + scale(Curso) | Colegio), data = dslong_train)
+adm3log <- lmer(log(Admisiones + 2) ~ Colegio + scale(Curso) +
+                  log(Solicitudes + 2) +
+                  (1 + scale(Curso) | Colegio), data = dslong_train)
+```
+
+```{r admissions_model3_MSE}
+cat("model3 MSE: ", mean((predict(adm3, dslong_test) - dslong_test$Admisiones) ** 2))
+cat("model3log MSE: ", mean(((exp(predict(adm3log, dslong_test)) - 2) - dslong_test$Admisiones)**2))
+```
+
+A last mixed model, a little more complicated, just to see how it works from a predictive point of view, since its interpretation would be complicated.
+
+```{r admissions_model4, comment = FALSE, warning = FALSE}
+adm4log <- lmer(log(Admisiones + 2) ~ Colegio + scale(Curso) +
+                  log(Solicitudes + 2) +
+                  (1 + log(Solicitudes + 2) | Colegio) +
+                  (1 + scale(Curso) | Colegio), data = dslong_train)
+```
+
+```{r admissions_model4_MSE}
+cat("model4log MSE: ", mean(((exp(predict(adm4log, dslong_test)) - 2) - dslong_test$Admisiones)**2))
+```
+
+It seems that this model improves, very slightly, the fixed-effect model 2, which is much simpler to interpret.
+
+Let's compare models.
+
+```{r admissions_models_without_REML, comment = FALSE, warning = FALSE}
+adm3b <- lmer(Admisiones ~ Colegio + scale(Curso) + Solicitudes + 
+               (1 + scale(Curso) | Colegio), data = dslong_train, REML = FALSE)
+adm3blog <- lmer(log(Admisiones + 2) ~ Colegio + scale(Curso) +
+                  log(Solicitudes + 2) +
+                  (1 + scale(Curso) | Colegio), data = dslong_train,
+                REML = FALSE)
+adm4blog <- lmer(log(Admisiones + 2) ~ Colegio + scale(Curso) +
+                  log(Solicitudes + 2) +
+                  (1 + log(Solicitudes + 2) | Colegio) +
+                  (1 + scale(Curso) | Colegio), data = dslong_train,
+                 REML = FALSE)
+```
+
+```{r aic_admissions_model_without_REML}
+AIC(adm0, adm1, adm2, adm3b)
+```
+
+```{r aic_admissions_log_model_scaled_without_REML}
+cbind(AIC(adm0log, adm1log, adm2log, adm3blog, adm4blog)[,1, drop = FALSE],
+      AIC = c(AIC(adm0log) + 2 * sum(log(dslong_train$Admisiones + 2)),
+              AIC(adm1log) + 2 * sum(log(dslong_train$Admisiones + 2)),
+              AIC(adm2log) + 2 * sum(log(dslong_train$Admisiones + 2)),
+              AIC(adm3blog) + 2 * sum(log(dslong_train$Admisiones + 2)),
+              AIC(adm4blog) + 2 * sum(log(dslong_train$Admisiones + 2))))
+```
+
+As before, although the best AIC score is for the model 3, with log transformation, models 2 and 4 get a lower MSE score. It's a small difference, both in the AIC and in the MSE, so we will guide us again by the AIC score and we will select model 3, with log transformation, to predict admissions.
+    
+So we will generate the predictions for the 2017-2018 academic year and add them to the original database.
+
+```{r predict_and_add, comment = FALSE, warning = FALSE}
+sol_model <- lmer(log(Solicitudes + 2) ~ Colegio
+                  + (1 + scale(Curso) | Colegio),
+                  data = dslong_no2017)
+dslong_2017$Solicitudes <- exp(predict(sol_model, dslong_2017)) - 2
+
+adm_model <- lmer(log(Admisiones + 2) ~ Colegio + scale(Curso) +
+                    log(Solicitudes + 2) +
+                    (1 + scale(Curso) | Colegio), data = dslong_no2017)
+dslong_2017$Admisiones <- exp(predict(adm_model, dslong_2017)) - 2
+
+dslong_2017$Admisiones[dslong_2017$Admisiones < 0] <- 0
+dslong_2017 <- dslong_2017[, c(1,3,4)]
+colnames(dslong_2017) <- c("Colegio", "Admisiones_2017.2018",
+                           "Solicitudes_2017.2018")
+dataschools <- merge(dataschools, dslong_2017, by = "Colegio", all = TRUE)
+write.csv(dataschools, file = "../4_Data_Analysis/csv_files/DataSchools.csv",
+          row.names = FALSE)
+```

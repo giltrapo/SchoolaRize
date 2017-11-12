@@ -26,7 +26,7 @@ school_codes = schools.findAll(attrs = {"name": "codCentrosExp", "value": re.com
 # Convert from string to list.
 school_codes = school_codes.split(";")
 # Save list of school codes
-with open("Files/school_codes", "wb") as f:
+    with open("../2_Data_Collect/Files/school_codes", "wb") as f:
     pickle.dump(school_codes, f)
 
 ### Extract tables from school cards.
@@ -74,5 +74,5 @@ for z, school in enumerate(schools_urls):
 stdout.write("\n")
 
 # Save dictionary with tables
-with open("Files/school_tables_collection", "wb") as f:
+with open("../2_Data_Collect/Files/school_tables_collection", "wb") as f:
     pickle.dump(school_tables_collection, f, protocol=pickle.HIGHEST_PROTOCOL)
