@@ -15,6 +15,8 @@ The following data is also available at the **district** level:
 - Population between 6 and 11 years old (primary target of Primary courses).
 - Relationship between population from 6 to 11 years old and Primary places.
 
+![Schoolarize screenshot](/images/Schoolarize_screenshot.png)
+
 This repository shows all the code used to carry out the project, so that anyone can replicate it if they wish. Most of the project has been done in Python notebooks, and only a small part was carried out with R.
 
 The structure of the folders contained in the repository reflects the phases followed throughout the project.
